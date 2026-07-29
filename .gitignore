@@ -1,0 +1,8 @@
+.cache/
+node_modules/
+.env
+.env.*
+
+# Guarda el historial de comandos autorizados, y ahí quedan grabadas las claves
+# que se pasaron por línea de comandos. Nunca debe subirse a un repositorio.
+.claude/

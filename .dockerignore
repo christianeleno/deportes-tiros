@@ -1,0 +1,9 @@
+.cache/
+node_modules/
+.git/
+.env
+.claude/
+test/
+README.md
+Dockerfile
+.dockerignore

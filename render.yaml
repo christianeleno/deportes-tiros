@@ -1,0 +1,43 @@
+# Blueprint de Render. Con este archivo en el repo, Render configura el servicio
+# solo: no hay que rellenar nada a mano salvo las dos claves.
+#
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: pitchiq
+    runtime: node
+    plan: free
+    region: frankfurt # el más cercano a España en el plan gratuito
+
+    # La app no tiene dependencias; npm ci sin lockfile fallaría, así que no
+    # ejecutamos nada en construcción.
+    buildCommand: ''
+    startCommand: node server.js
+
+    # Render considera viva la instancia si esta ruta responde 200. Es barata:
+    # no llama a ningún proveedor externo.
+    healthCheckPath: /api/estado
+
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+
+      # La caché va a /tmp: en Render el disco del plan gratuito es efímero.
+      - key: CACHE_DIR
+        value: /tmp/pitchiq-cache
+
+      # --- Protección de cuota (la app es pública y las claves son tuyas) ---
+      - key: LIMITE_IP_HORA
+        value: '15'
+      - key: PRESUPUESTO_DIA
+        value: '400'
+      - key: LIMITE_GEMINI_DIA
+        value: '150'
+
+      # --- Secretos: sync:false hace que Render los pida en el panel y NO se
+      # guarden en el repositorio. No pongas aquí las claves. ---
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

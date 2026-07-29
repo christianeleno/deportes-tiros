@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PitchIQ · Agentes de IA para análisis prepartido</title>
+<link rel="stylesheet" href="styles.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>" />
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="ball">⚽</span>
+    <div>
+      <h1>PitchIQ</h1>
+      <p>Agentes de IA en la nube · análisis prepartido de córners y tarjetas</p>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ============ PANEL DE CONFIGURACIÓN DEL PARTIDO ============ -->
+  <section class="card panel">
+    <h2>Configuración del partido</h2>
+    <div class="grid">
+      <label>Fuente de datos
+        <select id="fuente">
+          <option value="demo">Demo (sin red)</option>
+          <option value="api">Datos reales (API)</option>
+        </select>
+      </label>
+      <label id="wrap-temporada" hidden>Temporada
+        <select id="temporada"></select>
+      </label>
+      <label>Liga
+        <select id="liga"></select>
+      </label>
+      <label>Equipo local
+        <select id="local"></select>
+      </label>
+      <label>Equipo visitante
+        <select id="visitante"></select>
+      </label>
+      <label>Árbitro
+        <select id="arbitro"></select>
+      </label>
+      <label id="wrap-arbitro-real" hidden>Árbitro real (nombre)
+        <input id="arbitroNombre" type="text" placeholder="Ej. Munuera Montero" />
+      </label>
+      <label>Clima
+        <select id="clima"></select>
+      </label>
+      <label>Importancia
+        <select id="importancia"></select>
+      </label>
+    </div>
+
+    <details class="cuotas">
+      <summary>Cuotas del mercado (opcional) — para detectar valor</summary>
+      <div class="grid grid-cuotas">
+        <label>Línea córners <input id="cornersLinea" type="number" step="0.5" placeholder="9.5" /></label>
+        <label>Cuota Over <input id="cornersOver" type="number" step="0.01" placeholder="1.85" /></label>
+        <label>Cuota Under <input id="cornersUnder" type="number" step="0.01" placeholder="1.95" /></label>
+        <label>Línea tarjetas <input id="tarjetasLinea" type="number" step="0.5" placeholder="4.5" /></label>
+        <label>Cuota Over <input id="tarjetasOver" type="number" step="0.01" placeholder="1.90" /></label>
+        <label>Cuota Under <input id="tarjetasUnder" type="number" step="0.01" placeholder="1.90" /></label>
+      </div>
+    </details>
+
+    <button id="analizar" class="primary">▶ Lanzar los agentes</button>
+    <p class="hint" id="estado-datos"></p>
+    <p class="hint" id="estado-modo"></p>
+  </section>
+
+  <!-- ============ PIPELINE DE AGENTES ============ -->
+  <section class="card">
+    <h2>Pipeline de agentes <span class="live" id="live-dot" hidden>● en vivo</span></h2>
+    <ul id="agentes" class="agentes"></ul>
+  </section>
+
+  <!-- ============ RESULTADOS ============ -->
+  <section id="resultados" hidden>
+    <div class="dos">
+      <div class="card">
+        <h2>Córners</h2>
+        <div class="kpi"><span id="kpi-corners">–</span><small>córners totales esperados</small></div>
+        <div class="split" id="split-corners"></div>
+        <canvas id="chart-corners" height="150"></canvas>
+        <table class="lineas" id="tabla-corners"></table>
+      </div>
+      <div class="card">
+        <h2>Tarjetas</h2>
+        <div class="kpi"><span id="kpi-tarjetas">–</span><small>amarillas esperadas</small></div>
+        <div class="split" id="split-tarjetas"></div>
+        <canvas id="chart-tarjetas" height="150"></canvas>
+        <table class="lineas" id="tabla-tarjetas"></table>
+      </div>
+    </div>
+
+    <div class="card" id="card-valor" hidden>
+      <h2>Valor frente al mercado</h2>
+      <table class="lineas" id="tabla-valor"></table>
+    </div>
+
+    <div class="card">
+      <h2>Informe <span class="tag" id="fuente-informe"></span></h2>
+      <div id="informe" class="informe"></div>
+    </div>
+  </section>
+
+  <p class="disclaimer">
+    Datos de equipos incluidos con fines de demostración. Modelo estadístico, no una predicción garantizada:
+    úsalo como apoyo analítico, nunca como consejo de apuesta. Juega con responsabilidad.
+  </p>
+</main>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
