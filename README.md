@@ -63,8 +63,13 @@ curl "http://localhost:4173/api/diagnostico?ruta=/football-get-match-all-stats?e
 
 ## Publicarla en internet
 
-Ver [DESPLIEGUE.md](DESPLIEGUE.md): despliegue en Cloud Run con un solo comando,
-protección de cuota y control de coste.
+Dos opciones preparadas, ambas con protección de cuota:
+
+- **[RENDER.md](RENDER.md)** — despliegue desde GitHub con `render.yaml`. Más
+  simple: cada push actualiza la app. En el plan gratuito el servicio se duerme
+  a los 15 min y despertar tarda ~50 s.
+- **[DESPLIEGUE.md](DESPLIEGUE.md)** — Cloud Run con `Dockerfile`. Un comando y
+  arranque en frío de un par de segundos, pero exige `gcloud` y facturación.
 
 ## Pruebas
 
