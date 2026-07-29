@@ -10,9 +10,27 @@ const assert = require('assert');
 const lf = require('../providers/livefootball.js');
 
 let ok = 0;
+const pendientes = [];
+
+/** Acepta funciones síncronas y asíncronas; las async se esperan al final. */
 const prueba = (nombre, fn) => {
   try {
-    fn();
+    const r = fn();
+    if (r && typeof r.then === 'function') {
+      pendientes.push(
+        r.then(
+          () => {
+            ok++;
+            console.log(`  ✓ ${nombre}`);
+          },
+          (e) => {
+            console.error(`  ✗ ${nombre}\n    ${e.message}`);
+            process.exitCode = 1;
+          }
+        )
+      );
+      return;
+    }
     ok++;
     console.log(`  ✓ ${nombre}`);
   } catch (e) {
@@ -220,4 +238,91 @@ prueba('el campo opponent no se cuela como partido extra', () => {
   assert.ok(p.every((x) => x.home && x.away));
 });
 
-console.log(`\n${ok} pruebas correctas\n`);
+console.log('\nmuestra incompleta (regresión: no degradar en silencio)');
+
+// Reproduce lo que pasó en producción: la cuota del proveedor se agota a mitad
+// del perfilado. Antes esto devolvía un perfil de 3 partidos como si fuera de 10.
+prueba('la cuota agotada aborta el perfil en vez de recortarlo', async () => {
+  let llamadas = 0;
+  const apiGet = async (_host, ruta) => {
+    llamadas++;
+    if (ruta.startsWith('/football-get-all-matches-by-league')) {
+      return {
+        response: {
+          matches: Array.from({ length: 10 }, (_, i) => ({
+            id: String(1000 + i),
+            home: { id: '1', name: 'Equipo A' },
+            away: { id: '2', name: 'Equipo B' },
+            status: { finished: true, utcTime: `2026-0${(i % 9) + 1}-01T19:00:00Z` },
+          })),
+        },
+      };
+    }
+    // Las dos primeras estadísticas van bien; a partir de ahí, cuota agotada.
+    if (llamadas > 3) {
+      const e = new Error('Cuota del proveedor de datos agotada.');
+      e.cuotaAgotada = true;
+      throw e;
+    }
+    return {
+      response: {
+        stats: [{ title: 'Top stats', stats: [
+          { title: 'Corners', stats: [5, 4] },
+          { title: 'Yellow cards', stats: [2, 1] },
+          { title: 'Fouls committed', stats: [11, 12] },
+          { title: 'Total shots', stats: [13, 10] },
+        ] }],
+      },
+    };
+  };
+
+  const prov = lf.crear({ apiGet, acotar: (v, a, b) => Math.min(b, Math.max(a, v)) });
+  let error = null;
+  try {
+    await prov.perfil('1', 87, null, 10);
+  } catch (e) {
+    error = e;
+  }
+  assert.ok(error, 'debería lanzar en vez de devolver un perfil recortado');
+  assert.ok(error.cuotaAgotada, 'el error debe conservar la marca de cuota agotada');
+});
+
+prueba('una muestra recortada por otros motivos se marca como incompleta', async () => {
+  const apiGet = async (_host, ruta) => {
+    if (ruta.startsWith('/football-get-all-matches-by-league')) {
+      return {
+        response: {
+          matches: Array.from({ length: 6 }, (_, i) => ({
+            id: String(2000 + i),
+            home: { id: '1', name: 'Equipo A' },
+            away: { id: '2', name: 'Equipo B' },
+            status: { finished: true, utcTime: `2026-0${i + 1}-01T19:00:00Z` },
+          })),
+        },
+      };
+    }
+    // La mitad de los partidos no traen estadísticas útiles
+    const id = Number(/eventid=(\d+)/.exec(ruta)[1]);
+    if (id % 2 === 0) return { response: { stats: [] } };
+    return {
+      response: {
+        stats: [{ title: 'Top stats', stats: [
+          { title: 'Corners', stats: [6, 3] },
+          { title: 'Yellow cards', stats: [2, 2] },
+          { title: 'Fouls committed', stats: [10, 11] },
+          { title: 'Total shots', stats: [14, 9] },
+        ] }],
+      },
+    };
+  };
+
+  const prov = lf.crear({ apiGet, acotar: (v, a, b) => Math.min(b, Math.max(a, v)) });
+  const perfil = await prov.perfil('1', 87, null, 6);
+  assert.strictEqual(perfil.muestra.partidos, 3);
+  assert.strictEqual(perfil.muestra.incompleta, true, 'debe marcarse como incompleta');
+  assert.strictEqual(perfil.muestra.descartados, 3);
+});
+
+Promise.all(pendientes).then(() => {
+  console.log(`\n${ok} pruebas correctas\n`);
+});

@@ -273,10 +273,17 @@ async function analizar() {
     }
   }
 
+  const recortada = local.muestra?.incompleta || visitante.muestra?.incompleta;
   const nota = local.muestra?.partidos
-    ? `Perfiles sobre ${local.muestra.partidos} y ${visitante.muestra.partidos} partidos · fuente ${local.fuente}`
+    ? `Perfiles sobre ${local.muestra.partidos} y ${visitante.muestra.partidos} partidos` +
+      (recortada ? ` de ${local.muestra.solicitados} pedidos` : '') +
+      ` · fuente ${local.fuente}`
     : `Fuente ${local.fuente}`;
-  if (!$('estado-datos').textContent.startsWith('⚠️')) $('estado-datos').textContent = `✅ ${nota}`;
+  if (!$('estado-datos').textContent.startsWith('⚠️')) {
+    $('estado-datos').textContent = recortada
+      ? `⚠️ Muestra incompleta — ${nota}. Las proyecciones pierden fiabilidad.`
+      : `✅ ${nota}`;
+  }
 
   const cfg = {
     local,

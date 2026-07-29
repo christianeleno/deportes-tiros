@@ -172,6 +172,7 @@ function crear({ apiGet, acotar }) {
       const acc = { cf: 0, ca: 0, tf: 0, fc: 0, tiros: 0, rojas: 0, n: 0 };
       const detalle = [];
       let nombre = null;
+      let fallos = 0;
 
       for (const p of suyos) {
         const esLocal = String(p.home.id) === String(idEquipo);
@@ -180,7 +181,11 @@ function crear({ apiGet, acotar }) {
         let est;
         try {
           est = await get(`/football-get-match-all-stats?eventid=${p.id ?? p.matchId ?? p.eventId}`);
-        } catch {
+        } catch (e) {
+          // Cuota agotada: abortar. Seguir sería construir el perfil con una
+          // muestra recortada y presentarlo como si fuera completo.
+          if (e.cuotaAgotada) throw e;
+          fallos++;
           continue; // partido sin estadísticas publicadas: se descarta
         }
 
@@ -193,7 +198,10 @@ function crear({ apiGet, acotar }) {
         const corners = lee('corners');
         const amarillas = lee('amarillas');
         const faltas = lee('faltas');
-        if (!corners || !amarillas || !faltas) continue;
+        if (!corners || !amarillas || !faltas) {
+          fallos++;
+          continue;
+        }
 
         const tiros = lee('tiros');
         const rojas = lee('rojas');
@@ -239,7 +247,14 @@ function crear({ apiGet, acotar }) {
         agr: +acotar(fc / 12.2, 0.8, 1.25).toFixed(3),
         int: +acotar(tiros / 12.5, 0.8, 1.25).toFixed(3),
         rojasPorPartido: +(acc.rojas / n).toFixed(3),
-        muestra: { partidos: n, solicitados: partidos, detalle },
+        muestra: {
+          partidos: n,
+          solicitados: partidos,
+          // La muestra incompleta debe viajar hasta la interfaz: un perfil
+          // sobre 3 partidos no vale lo mismo que uno sobre 10.
+          incompleta: n < partidos,
+          descartados: fallos,
+        detalle },
         fuente: 'Free API Live Football Data',
       };
     },

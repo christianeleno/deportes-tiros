@@ -30,8 +30,10 @@ services:
       # --- Protección de cuota (la app es pública y las claves son tuyas) ---
       - key: LIMITE_IP_HORA
         value: '15'
+      - key: PRESUPUESTO_MES
+        value: '100'
       - key: PRESUPUESTO_DIA
-        value: '400'
+        value: '60'
       - key: LIMITE_GEMINI_DIA
         value: '150'
 

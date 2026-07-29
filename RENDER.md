@@ -82,14 +82,38 @@ Los valores están en `render.yaml` y se pueden cambiar en el panel de Render
 | Variable | Defecto | Qué hace |
 |---|---|---|
 | `LIMITE_IP_HORA` | 15 | Análisis por hora y por IP. Navegar la interfaz no cuenta. |
-| `PRESUPUESTO_DIA` | 400 | Tope de peticiones diarias al proveedor de datos. |
+| `PRESUPUESTO_MES` | 100 | Tope mensual de peticiones al proveedor de datos. |
+| `PRESUPUESTO_DIA` | 60 | Tope diario, para que un solo día no se coma el mes. |
 | `LIMITE_GEMINI_DIA` | 150 | Tope de informes de Gemini al día. |
 
 Al agotarse, la app no se rompe: avisa con un mensaje claro y, si lo que falta es
 Gemini, el informe lo redacta el motor estadístico local.
 
-Un análisis nuevo cuesta ~22 peticiones (11 por equipo), así que 400 dan para
-unos 18 análisis distintos al día. **Ajústalo a tu plan real de RapidAPI.**
+### El plan BASIC de RapidAPI son 100 peticiones AL MES
+
+No al día. Es la limitación que de verdad manda sobre esta app, y conviene tenerla
+delante antes de compartir el enlace:
+
+| | |
+|---|---|
+| Coste de un análisis nuevo | ~22 peticiones (11 por equipo) |
+| Análisis nuevos al mes con el plan gratuito | **unos 4** |
+| Análisis repetidos | gratis mientras duren en caché (6 h) |
+
+Por eso `PRESUPUESTO_MES` viene a 100: agotarlo deja la app en modo demo hasta el
+día 1. Si subes de plan en RapidAPI, sube también esta variable.
+
+**Alternativa que puede convenirte más**: API-Football (`APIFOOTBALL_KEY`) ofrece
+100 peticiones **al día** en su plan gratuito, unos 4 análisis diarios en vez de
+4 mensuales. El código ya soporta ambos proveedores; basta cambiar la variable de
+entorno en Render.
+
+### Muestra incompleta
+
+Si al perfilar un equipo faltan estadísticas de algunos partidos, la app **no
+disimula**: marca el perfil como incompleto y lo avisa en pantalla y en el
+informe. Si lo que falla es la cuota, aborta en vez de entregar un perfil de tres
+partidos como si fuera de diez.
 
 Para ver el gasto en cualquier momento:
 

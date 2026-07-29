@@ -39,12 +39,22 @@ export async function ejecutarPipeline(cfg, emitir) {
     fuente: cfg.local.fuente || 'Demo',
   };
   resultado.muestra = muestra;
+  const pedidos = cfg.local.muestra?.solicitados;
+  const recortada = cfg.local.muestra?.incompleta || cfg.visitante.muestra?.incompleta;
   ev(
     'datos',
     'ok',
-    `Muestra validada (${muestra.fuente}): ${cfg.local.nombre} ${nLocal} partidos, ${cfg.visitante.nombre} ${nVisit} partidos.`,
+    recortada
+      ? `⚠️ Muestra INCOMPLETA (${muestra.fuente}): ${cfg.local.nombre} ${nLocal} y ${cfg.visitante.nombre} ${nVisit} partidos, de ${pedidos} pedidos. Las proyecciones pierden fiabilidad.`
+      : `Muestra validada (${muestra.fuente}): ${cfg.local.nombre} ${nLocal} partidos, ${cfg.visitante.nombre} ${nVisit} partidos.`,
     muestra
   );
+  if (recortada) {
+    resultado.avisoMuestra =
+      `Perfiles construidos sobre ${nLocal} y ${nVisit} partidos en vez de ${pedidos}: ` +
+      `faltaron estadísticas de algunos encuentros. Trata los números como orientativos.`;
+    resultado.hallazgos.push(`⚠️ ${resultado.avisoMuestra}`);
+  }
   resultado.hallazgos.push(
     `${cfg.local.nombre} genera ${cfg.local.cf.toFixed(1)} córners/90' y concede ${cfg.local.ca.toFixed(1)}.`,
     `${cfg.visitante.nombre} genera ${cfg.visitante.cf.toFixed(1)} córners/90' y concede ${cfg.visitante.ca.toFixed(1)}.`

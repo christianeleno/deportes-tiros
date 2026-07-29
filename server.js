@@ -33,8 +33,11 @@ const PARTIDOS = Number(process.env.PITCHIQ_PARTIDOS || 10);
 // agotarlas. Los contadores son por instancia: despliega con --max-instances=1
 // para que el presupuesto diario sea exacto.
 const LIMITE_IP_HORA = Number(process.env.LIMITE_IP_HORA || 15);
-const PRESUPUESTO_DIA = Number(process.env.PRESUPUESTO_DIA || 400);
+const PRESUPUESTO_DIA = Number(process.env.PRESUPUESTO_DIA || 60);
 const LIMITE_GEMINI_DIA = Number(process.env.LIMITE_GEMINI_DIA || 150);
+// El plan BASIC de RapidAPI para esta API son 100 peticiones AL MES, no al día.
+// Un análisis nuevo cuesta ~22, así que sin tope mensual se agota en una tarde.
+const PRESUPUESTO_MES = Number(process.env.PRESUPUESTO_MES || 100);
 
 const acotar = (v, min, max) => Math.min(max, Math.max(min, v));
 const clave = (s) => s.replace(/[^a-z0-9]/gi, '_').slice(0, 150);
@@ -71,12 +74,20 @@ function escribirCache(k, datos) {
 // ------------------------------------------------------------- límites de uso
 const golpesPorIp = new Map(); // ip -> [marcas de tiempo]
 let gastoUpstream = { dia: null, peticiones: 0, gemini: 0 };
+let gastoMes = { mes: null, peticiones: 0 };
 
 /** Reinicia los contadores diarios al cambiar de día (UTC). */
 function diaActual() {
   const hoy = new Date().toISOString().slice(0, 10);
   if (gastoUpstream.dia !== hoy) gastoUpstream = { dia: hoy, peticiones: 0, gemini: 0 };
   return gastoUpstream;
+}
+
+/** Contador mensual, que es el que de verdad limita el plan gratuito. */
+function mesActual() {
+  const mes = new Date().toISOString().slice(0, 7);
+  if (gastoMes.mes !== mes) gastoMes = { mes, peticiones: 0 };
+  return gastoMes;
 }
 
 /** Cloud Run pone la IP real del cliente al principio de X-Forwarded-For. */
@@ -119,12 +130,21 @@ function apiGet(host, ruta) {
   // Solo las peticiones que salen de verdad gastan presupuesto: las servidas
   // desde caché ya han vuelto antes de llegar aquí.
   const gasto = diaActual();
-  if (gasto.peticiones >= PRESUPUESTO_DIA) {
-    return Promise.reject(
-      new Error(`Presupuesto diario agotado (${PRESUPUESTO_DIA} peticiones). Vuelve mañana.`)
+  const mes = mesActual();
+  if (mes.peticiones >= PRESUPUESTO_MES) {
+    const err = new Error(
+      `Presupuesto mensual agotado (${PRESUPUESTO_MES} peticiones). Se renueva el día 1.`
     );
+    err.cuotaAgotada = true;
+    return Promise.reject(err);
+  }
+  if (gasto.peticiones >= PRESUPUESTO_DIA) {
+    const err = new Error(`Presupuesto diario agotado (${PRESUPUESTO_DIA} peticiones). Vuelve mañana.`);
+    err.cuotaAgotada = true;
+    return Promise.reject(err);
   }
   gasto.peticiones++;
+  mes.peticiones++;
 
   const headers = {};
   if (host === liveFootball.HOST) {
@@ -143,6 +163,18 @@ function apiGet(host, ruta) {
       res.on('end', () => {
         peticiones++;
         if (res.statusCode !== 200) {
+          // La cuota agotada tiene que distinguirse de un fallo puntual: si no,
+          // el perfil se construye en silencio con menos partidos de los pedidos
+          // y devuelve números poco fiables sin avisar a nadie.
+          const agotada =
+            res.statusCode === 429 || /exceeded the (MONTHLY|DAILY|RATE) quota/i.test(cuerpo);
+          if (agotada) {
+            const err = new Error(
+              'Cuota del proveedor de datos agotada. Revisa tu plan en RapidAPI o espera a que se renueve.'
+            );
+            err.cuotaAgotada = true;
+            return reject(err);
+          }
           return reject(new Error(`${host} HTTP ${res.statusCode}: ${cuerpo.slice(0, 180)}`));
         }
         let json;
@@ -383,6 +415,8 @@ async function manejarApi(url, res, req) {
         peticionesEstaSesion: peticiones,
         entradasEnCache: contarCache(),
         presupuesto: {
+          usadasEsteMes: mesActual().peticiones,
+          limiteMes: PRESUPUESTO_MES,
           usadasHoy: diaActual().peticiones,
           limiteDia: PRESUPUESTO_DIA,
           informesHoy: diaActual().gemini,
@@ -500,7 +534,8 @@ const servidor = http
         : 'Sin clave (RAPIDAPI_KEY o APIFOOTBALL_KEY): la app arranca en modo demo.'
     );
     console.log(
-      `Límites: ${LIMITE_IP_HORA} análisis/hora por IP · ${PRESUPUESTO_DIA} peticiones/día · ${LIMITE_GEMINI_DIA} informes/día`
+      `Límites: ${LIMITE_IP_HORA} análisis/hora por IP · ${PRESUPUESTO_DIA} peticiones/día · ` +
+        `${PRESUPUESTO_MES} peticiones/mes · ${LIMITE_GEMINI_DIA} informes/día`
     );
   });
 
