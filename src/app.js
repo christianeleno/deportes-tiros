@@ -342,7 +342,11 @@ async function iniciar() {
   // Si el servidor tiene ligas disponibles (realista o con clave), usa API.
   const estadoApi = await PROVEEDORES.api.estado();
   estadoServidor = PROVEEDORES.api._estado || {};
-  const tieneProveedorServidor = estadoServidor.ligas && estadoServidor.ligas.length > 0;
+  console.log('estadoApi:', estadoApi);
+  console.log('estadoApi.ligas:', estadoApi.ligas);
+  console.log('estadoApi.ligas.length:', estadoApi.ligas?.length);
+  const tieneProveedorServidor = estadoApi.ligas && estadoApi.ligas.length > 0;
+  console.log('tieneProveedorServidor:', tieneProveedorServidor);
   $('fuente').value = tieneProveedorServidor ? 'api' : 'demo';
   await cambiarFuente();
   actualizarEstadoModo();
