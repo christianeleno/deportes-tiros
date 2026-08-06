@@ -266,6 +266,12 @@ async function analizar() {
   local.nombre = $('local').selectedOptions[0]?.textContent || 'Local';
   visitante.nombre = $('visitante').selectedOptions[0]?.textContent || 'Visitante';
 
+  // Agregar propiedades faltantes requeridas por el modelo
+  local.int = 1; // intensidad/interacción, default 1 (normal)
+  visitante.int = 1;
+  local.agr = 1; // agresividad, default 1 (promedio de liga)
+  visitante.agr = 1;
+
   // Árbitro: perfil real si se ha escrito un nombre, si no el preajuste
   let arbitro = ARBITROS.find((a) => a.id === $('arbitro').value);
   const nombreArb = $('arbitroNombre')?.value.trim();
