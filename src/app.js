@@ -262,6 +262,10 @@ async function analizar() {
     return;
   }
 
+  // Agregar nombres de los equipos desde los selects
+  local.nombre = $('local').selectedOptions[0]?.textContent || 'Local';
+  visitante.nombre = $('visitante').selectedOptions[0]?.textContent || 'Visitante';
+
   // Árbitro: perfil real si se ha escrito un nombre, si no el preajuste
   let arbitro = ARBITROS.find((a) => a.id === $('arbitro').value);
   const nombreArb = $('arbitroNombre')?.value.trim();
