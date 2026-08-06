@@ -339,10 +339,11 @@ async function iniciar() {
   $('liga').onchange = pintarEquipos;
   $('analizar').onclick = analizar;
 
-  // Si el proxy tiene clave configurada, arrancamos directamente con datos reales.
+  // Si el servidor tiene ligas disponibles (realista o con clave), usa API.
   const estadoApi = await PROVEEDORES.api.estado();
   estadoServidor = PROVEEDORES.api._estado || {};
-  $('fuente').value = estadoApi.disponible ? 'api' : 'demo';
+  const tieneProveedorServidor = estadoServidor.ligas && estadoServidor.ligas.length > 0;
+  $('fuente').value = tieneProveedorServidor ? 'api' : 'demo';
   await cambiarFuente();
   actualizarEstadoModo();
 }
