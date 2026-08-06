@@ -50,12 +50,15 @@ export const proveedorApi = {
     try {
       const s = await jsonOk('/api/estado');
       this._estado = s;
+      const tieneProveedor = s.ligas && s.ligas.length > 0;
       return {
-        disponible: s.claveConfigurada,
+        disponible: tieneProveedor || s.claveConfigurada,
         usaTemporada: s.usaTemporada,
-        nota: s.claveConfigurada
-          ? `${s.partidosPorPerfil} últimos partidos por equipo · ${s.entradasEnCache} entradas en caché`
-          : 'El servidor no tiene ninguna clave configurada (RAPIDAPI_KEY o APIFOOTBALL_KEY).',
+        nota: tieneProveedor
+          ? `${s.proveedor}: ${s.ligas.length} ligas disponibles`
+          : s.claveConfigurada
+            ? `${s.partidosPorPerfil} últimos partidos por equipo · ${s.entradasEnCache} entradas en caché`
+            : 'El servidor no tiene ninguna clave configurada (RAPIDAPI_KEY o APIFOOTBALL_KEY).',
         ligas: s.ligas,
       };
     } catch (e) {
