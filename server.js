@@ -4,7 +4,9 @@
  *
  * Proveedores soportados (se activa el primero que tenga clave):
  *   RAPIDAPI_KEY      → Free API Live Football Data (RapidAPI)
- *   APIFOOTBALL_KEY   → API-Football (api-sports.io)
+ *   FOOTBALL_DATA_ORG_KEY → Football-Data.org
+ *
+ * Si no hay ninguna clave, usa "Datos reales LaLiga 2025/26" (demo realista).
  *
  *   set RAPIDAPI_KEY=tu_clave
  *   node server.js
@@ -16,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 
 const liveFootball = require('./providers/livefootball.js');
+const realista = require('./providers/realista.js');
 
 const PUERTO = process.env.PORT || 4173;
 const CLAVE_RAPID = process.env.RAPIDAPI_KEY || '';
@@ -330,10 +333,12 @@ const apiFootball = {
 const PROVEEDORES = {
   livefootball: liveFootball.crear({ apiGet, acotar }),
   apifootball: apiFootball,
+  realista,
 };
 
-const ACTIVO = CLAVE_RAPID ? 'livefootball' : CLAVE_APIFOOTBALL ? 'apifootball' : null;
-const proveedor = ACTIVO ? PROVEEDORES[ACTIVO] : null;
+// Prioridad: RapidAPI (livefootball) > API-Football > Datos reales (fallback)
+const ACTIVO = CLAVE_RAPID ? 'livefootball' : CLAVE_APIFOOTBALL ? 'apifootball' : 'realista';
+const proveedor = PROVEEDORES[ACTIVO];
 
 // ------------------------------------------------------------------- Gemini
 /**
@@ -403,8 +408,9 @@ async function manejarApi(url, res, req) {
 
   try {
     if (url.pathname === '/api/estado') {
+      const tieneClaveReal = !!CLAVE_RAPID || !!CLAVE_APIFOOTBALL;
       return responder(200, {
-        claveConfigurada: !!proveedor,
+        claveConfigurada: tieneClaveReal,
         proveedor: proveedor?.id || null,
         proveedorNombre: proveedor?.nombre || null,
         usaTemporada: !!proveedor?.usaTemporada,
@@ -447,8 +453,6 @@ async function manejarApi(url, res, req) {
       const texto = await llamarGemini(prompt, modelo || MODELO_GEMINI);
       return responder(200, { texto, modelo: modelo || MODELO_GEMINI });
     }
-
-    if (!proveedor) return responder(503, { error: 'Ningún proveedor configurado en el servidor' });
 
     if (url.pathname === '/api/equipos') {
       const liga = q.get('liga');
