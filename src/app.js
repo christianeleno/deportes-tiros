@@ -3,7 +3,7 @@ import { AGENTES, ejecutarPipeline } from './agents.js';
 import { MODELO_POR_DEFECTO } from './gemini.js';
 import { PROVEEDORES, temporadaActual } from './provider.js';
 
-let proveedor = PROVEEDORES.demo;
+let proveedor = PROVEEDORES.api; // Prioriza API (realista desde servidor) sobre demo
 let estadoServidor = {};
 const temporada = () => Number($('temporada').value) || temporadaActual();
 
