@@ -16,7 +16,7 @@ Las reglas de cada modo son una implementación propia basada en los componentes
 | MegaSpikes 1.31 | Modo 1 + (labios del Alligator bajo los dientes **o** SAR aún por encima del precio) |
 | MegaSpikes 1.32 | Modo 1.31 + rango de vela ≥ ATR × 0,7 + cierre bajo la media móvil |
 | Divergencia | Mínimo de precio igual o más bajo con RSI más alto dentro de la ventana |
-| Última vela roja | N velas bajistas seguidas con RSI bajo |
+| Última vela roja | N velas bajistas seguidas (N=1 por defecto) con RSI bajo (con margen) |
 
 ## Alertas
 Alerta en pantalla y sonido (configurables). Se emite una vez por vela cerrada.

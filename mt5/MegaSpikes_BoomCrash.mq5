@@ -73,7 +73,7 @@ input double InpEnvDeviation        = 0.1;         // Desviacion envolventes (%)
 
 input group "Divergencia / Ultima vela roja"
 input int    InpDivLookback         = 10;          // Velas a mirar atras (divergencia)
-input int    InpRedCandles          = 2;           // Velas del color contrario seguidas (ultima vela roja)
+input int    InpRedCandles          = 1;           // Velas del color contrario seguidas (ultima vela roja)
 
 input group "Alertas"
 input bool   InpAlertPopup          = true;        // Alerta en pantalla
@@ -230,7 +230,7 @@ bool Signal(int i, const double &open[], const double &high[], const double &low
             if(boom ? (close[b] >= open[b]) : (close[b] <= open[b]))
                return false;
            }
-         return boom ? (rsi[i] <= InpRsiOversold + 10.0) : (rsi[i] >= InpRsiOverbought - 10.0);
+         return boom ? (rsi[i] <= InpRsiOversold + InpRsiMargin + 10.0) : (rsi[i] >= InpRsiOverbought - InpRsiMargin - 10.0);
         }
      }
    return false;
