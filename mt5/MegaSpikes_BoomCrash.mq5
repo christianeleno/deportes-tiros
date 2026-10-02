@@ -53,10 +53,11 @@ input group "RSI"
 input int    InpRsiPeriod           = 14;          // Periodo RSI
 input double InpRsiOversold         = 30.0;        // RSI sobreventa (Boom)
 input double InpRsiOverbought       = 70.0;        // RSI sobrecompra (Crash)
+input double InpRsiMargin           = 5.0;         // Tolerancia RSI: mas margen = mas senales
 
 input group "ATR"
 input int    InpAtrPeriod           = 14;          // Periodo ATR
-input double InpAtrMult             = 1.0;         // Rango minimo de vela = ATR x este valor (1.32)
+input double InpAtrMult             = 0.7;         // Rango minimo de vela = ATR x este valor (1.32)
 
 input group "Alligator"
 input int    InpJawPeriod           = 13;          // Mandibula
@@ -170,8 +171,9 @@ bool Signal(int i, const double &open[], const double &high[], const double &low
    bool boom = g_isBoom;
 
    // Condiciones base (extremo de precio): Boom busca agotamiento bajista, Crash alcista.
-   bool rsiExt = boom ? (rsi[i] <= InpRsiOversold) : (rsi[i] >= InpRsiOverbought);
-   bool outEnv = boom ? (close[i] <= envLo[i])     : (close[i] >= envUp[i]);
+   // Reglas flexibles: el RSI admite un margen y basta con que la mecha toque la envolvente.
+   bool rsiExt = boom ? (rsi[i] <= InpRsiOversold + InpRsiMargin) : (rsi[i] >= InpRsiOverbought - InpRsiMargin);
+   bool outEnv = boom ? (low[i] <= envLo[i])       : (high[i] >= envUp[i]);
    bool sarOk  = boom ? (sar[i] > close[i])        : (sar[i] < close[i]); // SAR aun en contra: tendencia extendida
 
    switch(InpMode)
@@ -181,9 +183,9 @@ bool Signal(int i, const double &open[], const double &high[], const double &low
 
       case MODE_MEGA_131:
         {
-         // Anade Alligator (labios fuera de dientes en el sentido extendido) y SAR.
+         // Anade confirmacion de tendencia extendida: Alligator O SAR (basta uno).
          bool alli = boom ? (lips[i] < teeth[i]) : (lips[i] > teeth[i]);
-         return rsiExt && outEnv && alli && sarOk;
+         return rsiExt && outEnv && (alli || sarOk);
         }
 
       case MODE_MEGA_132:
@@ -192,7 +194,7 @@ bool Signal(int i, const double &open[], const double &high[], const double &low
          bool alli  = boom ? (lips[i] < teeth[i]) : (lips[i] > teeth[i]);
          bool range = (high[i] - low[i]) >= atr[i] * InpAtrMult;
          bool farMa = boom ? (close[i] < ma[i]) : (close[i] > ma[i]);
-         return rsiExt && outEnv && alli && sarOk && range && farMa;
+         return rsiExt && outEnv && (alli || sarOk) && range && farMa;
         }
 
       case MODE_DIVERGE:
@@ -211,8 +213,8 @@ bool Signal(int i, const double &open[], const double &high[], const double &low
             for(int n = i + 2; n <= j; n++)
                if(boom ? (low[n] < low[p]) : (high[n] > high[p]))
                   p = n;
-            if(boom)  return low[i] < low[p]   && rsi[i] > rsi[p] && rsi[i] <= InpRsiOversold + 10.0;
-            else      return high[i] > high[p] && rsi[i] < rsi[p] && rsi[i] >= InpRsiOverbought - 10.0;
+            if(boom)  return low[i] <= low[p]   && rsi[i] > rsi[p] && rsi[i] <= InpRsiOversold + InpRsiMargin + 10.0;
+            else      return high[i] >= high[p] && rsi[i] < rsi[p] && rsi[i] >= InpRsiOverbought - InpRsiMargin - 10.0;
            }
          return false;
         }

@@ -12,10 +12,10 @@ Las reglas de cada modo son una implementación propia basada en los componentes
 
 | Modo | Condición (Boom; Crash es el espejo) |
 |---|---|
-| MegaSpikes 1 | RSI en sobreventa y cierre bajo la envolvente inferior |
-| MegaSpikes 1.31 | Modo 1 + labios del Alligator bajo los dientes + SAR aún por encima del precio |
-| MegaSpikes 1.32 | Modo 1.31 + rango de vela ≥ ATR × factor + cierre bajo la media móvil |
-| Divergencia | Mínimo de precio más bajo con RSI más alto dentro de la ventana |
+| MegaSpikes 1 | RSI en sobreventa (con margen) y la mecha toca la envolvente inferior |
+| MegaSpikes 1.31 | Modo 1 + (labios del Alligator bajo los dientes **o** SAR aún por encima del precio) |
+| MegaSpikes 1.32 | Modo 1.31 + rango de vela ≥ ATR × 0,7 + cierre bajo la media móvil |
+| Divergencia | Mínimo de precio igual o más bajo con RSI más alto dentro de la ventana |
 | Última vela roja | N velas bajistas seguidas con RSI bajo |
 
 ## Alertas
