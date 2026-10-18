@@ -16,15 +16,16 @@ atrVelas  = input.int(5, "Velas de 5 min para el ATR", minval=1, group=gRango)
 
 gDia = "Tipo de día (ajuste con ATR)"
 tipoDia = input.string("Normal", "Tipo de día", options=["Tranquilo", "Normal", "CPI / PPI"], group=gDia)
-usarAjuste = input.bool(true, "Ensanchar el rango hasta ATR × multiplicador", group=gDia)
 multTranq  = input.float(1.0, "Tranquilo (× ATR)", step=0.1, group=gDia)
 multNormal = input.float(1.5, "Normal (× ATR)", step=0.1, group=gDia)
 multNoticia = input.float(2.0, "CPI / PPI (× ATR)", step=0.1, group=gDia)
 
 gOrd = "Órdenes"
 margenTicks = input.int(0, "Margen sobre el extremo (ticks)", minval=0, group=gOrd)
-rr          = input.float(2.0, "Objetivo (múltiplo del riesgo, mínimo 1)", minval=1.0, step=0.1, group=gOrd)
-duracionMin = input.int(120, "Minutos que dura la orden tras la apertura", minval=5, group=gOrd)
+rr          = input.float(1.0, "Objetivo mínimo (R). El vídeo: 1:1 es el mínimo", minval=1.0, step=0.1, group=gOrd)
+rr2         = input.float(4.0, "Objetivo extra a dibujar (R, 0 = no)", minval=0.0, step=0.5, group=gOrd)
+duracionMin = input.int(390, "Minutos que dura la orden tras la apertura (390 = hasta las 16:00)", minval=5, group=gOrd)
+valorPunto  = input.float(20.0, "Valor por punto ($) por contrato (NQ 20, MNQ 2)", minval=0.0, group=gOrd)
 
 gEst = "Estilo"
 colCompra = input.color(color.new(#22c55e, 0), "Compra", group=gEst)
@@ -75,12 +76,9 @@ stopSig = false
 
 if primeraApertura and not na(hi) and not na(atr5)
     atrDia := atr5
-    mitad = (hi - lo) / 2
-    centro = (hi + lo) / 2
-    if usarAjuste
-        mitad := math.max(mitad, mult * atrDia / 2)
-    compra := centro + mitad + margenTicks * syminfo.mintick
-    venta  := centro - mitad - margenTicks * syminfo.mintick
+    // Compra = máximo del rango + mult × ATR. Venta = mínimo del rango − mult × ATR
+    compra := hi + mult * atrDia + margenTicks * syminfo.mintick
+    venta  := lo - mult * atrDia - margenTicks * syminfo.mintick
     estado := 1
     tFin := time + duracionMin * 60 * 1000
     caja    := box.new(time - rangoMin * 60 * 1000, hi, time, lo, xloc=xloc.bar_time, border_color=color.new(colRango, 40), bgcolor=colRango)
@@ -103,18 +101,24 @@ if estado == 1
         if tocaC
             estado := 2
             entrada := compra
-            stop := venta
+            stop := lo                  // stop en el lado contrario del rango
             objetivo := entrada + rr * (entrada - stop)
             compraSig := true
             line.set_x2(lVenta, time)
         else if tocaV
             estado := 3
             entrada := venta
-            stop := compra
+            stop := hi
             objetivo := entrada - rr * (stop - entrada)
             ventaSig := true
             line.set_x2(lCompra, time)
         if tocaC or tocaV
+            if rr2 > 0
+                nivel2 = entrada + (compraSig ? 1 : -1) * rr2 * math.abs(entrada - stop)
+                line.new(time, nivel2, tFin, nivel2, xloc=xloc.bar_time, color=color.new(color.aqua, 60), style=line.style_dotted)
+                label.new(time, nivel2, str.tostring(rr2) + "R " + str.tostring(nivel2, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(color.aqua, 85), textcolor=color.aqua, size=size.tiny)
+            riesgo = math.abs(entrada - stop)
+            label.new(time, entrada, "1R = " + str.tostring(riesgo, "#.##") + " pts · $" + str.tostring(riesgo * valorPunto, "#") + "/contrato", xloc=xloc.bar_time, style=label.style_label_right, color=color.new(color.gray, 80), textcolor=color.white, size=size.tiny)
             line.new(time, stop, tFin, stop, xloc=xloc.bar_time, color=color.new(color.gray, 20), style=line.style_dotted)
             line.new(time, objetivo, tFin, objetivo, xloc=xloc.bar_time, color=color.new(color.aqua, 10), style=line.style_dotted)
             label.new(time, objetivo, "OBJ " + str.tostring(objetivo, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(color.aqua, 75), textcolor=color.aqua, size=size.small)
