@@ -1,0 +1,145 @@
+//@version=5
+indicator("OCO Apertura NY", overlay=true, max_lines_count=200, max_labels_count=200)
+
+// ─────────────────────────────────────────────────────────────
+// OCO (One Cancels the Other) en la apertura de Nueva York (9:30)
+// Basado en lo que se ve en el vídeo de @nqdog. Úsalo en gráficos de 1 o 5 min.
+// SUPUESTOS (el audio no se pudo escuchar): ver README.md
+// ─────────────────────────────────────────────────────────────
+
+tz = "America/New_York"
+
+// ── Entradas ──
+gRango = "Rango previo"
+rangoMin  = input.int(5, "Minutos de rango antes de las 9:30", minval=1, maxval=60, group=gRango)
+atrVelas  = input.int(5, "Velas de 5 min para el ATR", minval=1, group=gRango)
+
+gDia = "Tipo de día (ajuste con ATR)"
+tipoDia = input.string("Normal", "Tipo de día", options=["Tranquilo", "Normal", "CPI / PPI"], group=gDia)
+multTranq  = input.float(1.0, "Tranquilo (× ATR)", step=0.1, group=gDia)
+multNormal = input.float(1.5, "Normal (× ATR)", step=0.1, group=gDia)
+multNoticia = input.float(2.0, "CPI / PPI (× ATR)", step=0.1, group=gDia)
+
+gOrd = "Órdenes"
+margenTicks = input.int(0, "Margen sobre el extremo (ticks)", minval=0, group=gOrd)
+rr          = input.float(1.0, "Objetivo mínimo (R). El vídeo: 1:1 es el mínimo", minval=1.0, step=0.1, group=gOrd)
+rr2         = input.float(4.0, "Objetivo extra a dibujar (R, 0 = no)", minval=0.0, step=0.5, group=gOrd)
+duracionMin = input.int(390, "Minutos que dura la orden tras la apertura (390 = hasta las 16:00)", minval=5, group=gOrd)
+valorPunto  = input.float(20.0, "Valor por punto ($) por contrato (NQ 20, MNQ 2)", minval=0.0, group=gOrd)
+
+gEst = "Estilo"
+colCompra = input.color(color.new(#22c55e, 0), "Compra", group=gEst)
+colVenta  = input.color(color.new(#ef4444, 0), "Venta", group=gEst)
+colRango  = input.color(color.new(#8b5cf6, 80), "Caja del rango", group=gEst)
+
+// ── ATR de las velas de 5 min previas (ya cerradas) ──
+atr5 = request.security(syminfo.tickerid, "5", ta.atr(atrVelas)[1], lookahead=barmerge.lookahead_off)
+
+mult = tipoDia == "Tranquilo" ? multTranq : tipoDia == "CPI / PPI" ? multNoticia : multNormal
+
+// ── Hora en Nueva York (minutos desde medianoche) ──
+tod   = hour(time, tz) * 60 + minute(time, tz)
+todP  = nz(tod[1], 0)
+apert = 570                     // 9:30
+ini   = apert - rangoMin
+enRango = tod >= ini and tod < apert
+inicioRango = tod >= ini and todP < ini
+primeraApertura = tod >= apert and todP < apert
+
+// ── Estado ──
+var float hi = na
+var float lo = na
+var float atrDia = na
+var float compra = na
+var float venta = na
+var int   estado = 0            // 0 sin orden, 1 armada, 2 compra activa, 3 venta activa, 4 cerrada
+var float entrada = na
+var float stop = na
+var float objetivo = na
+var int   tFin = na
+var box   caja = na
+var line  lCompra = na
+var line  lVenta = na
+
+if inicioRango
+    hi := high
+    lo := low
+    estado := 0
+else if enRango
+    hi := math.max(hi, high)
+    lo := math.min(lo, low)
+
+compraSig = false
+ventaSig = false
+objSig = false
+stopSig = false
+
+if primeraApertura and not na(hi) and not na(atr5)
+    atrDia := atr5
+    // Compra = máximo del rango + mult × ATR. Venta = mínimo del rango − mult × ATR
+    compra := hi + mult * atrDia + margenTicks * syminfo.mintick
+    venta  := lo - mult * atrDia - margenTicks * syminfo.mintick
+    estado := 1
+    tFin := time + duracionMin * 60 * 1000
+    caja    := box.new(time - rangoMin * 60 * 1000, hi, time, lo, xloc=xloc.bar_time, border_color=color.new(colRango, 40), bgcolor=colRango)
+    lCompra := line.new(time, compra, tFin, compra, xloc=xloc.bar_time, color=colCompra, style=line.style_dashed)
+    lVenta  := line.new(time, venta, tFin, venta, xloc=xloc.bar_time, color=colVenta, style=line.style_dashed)
+    label.new(time, compra, "COMPRA " + str.tostring(compra, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(colCompra, 70), textcolor=colCompra, size=size.small)
+    label.new(time, venta, "VENTA " + str.tostring(venta, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(colVenta, 70), textcolor=colVenta, size=size.small)
+
+// ── Activación OCO: la primera que se toca cancela la otra ──
+if estado == 1
+    if time > tFin
+        estado := 4
+    else
+        tocaC = high >= compra
+        tocaV = low <= venta
+        if tocaC and tocaV
+            // Mismo minuto/vela: decide el cierre de la vela
+            tocaC := close >= open
+            tocaV := not tocaC
+        if tocaC
+            estado := 2
+            entrada := compra
+            stop := lo                  // stop en el lado contrario del rango
+            objetivo := entrada + rr * (entrada - stop)
+            compraSig := true
+            line.set_x2(lVenta, time)
+        else if tocaV
+            estado := 3
+            entrada := venta
+            stop := hi
+            objetivo := entrada - rr * (stop - entrada)
+            ventaSig := true
+            line.set_x2(lCompra, time)
+        if tocaC or tocaV
+            if rr2 > 0
+                nivel2 = entrada + (compraSig ? 1 : -1) * rr2 * math.abs(entrada - stop)
+                line.new(time, nivel2, tFin, nivel2, xloc=xloc.bar_time, color=color.new(color.aqua, 60), style=line.style_dotted)
+                label.new(time, nivel2, str.tostring(rr2) + "R " + str.tostring(nivel2, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(color.aqua, 85), textcolor=color.aqua, size=size.tiny)
+            riesgo = math.abs(entrada - stop)
+            label.new(time, entrada, "1R = " + str.tostring(riesgo, "#.##") + " pts · $" + str.tostring(riesgo * valorPunto, "#") + "/contrato", xloc=xloc.bar_time, style=label.style_label_right, color=color.new(color.gray, 80), textcolor=color.white, size=size.tiny)
+            line.new(time, stop, tFin, stop, xloc=xloc.bar_time, color=color.new(color.gray, 20), style=line.style_dotted)
+            line.new(time, objetivo, tFin, objetivo, xloc=xloc.bar_time, color=color.new(color.aqua, 10), style=line.style_dotted)
+            label.new(time, objetivo, "OBJ " + str.tostring(objetivo, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(color.aqua, 75), textcolor=color.aqua, size=size.small)
+            label.new(time, stop, "STOP " + str.tostring(stop, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(color.gray, 75), textcolor=color.gray, size=size.small)
+
+// ── Seguimiento de la operación ──
+else if estado == 2 or estado == 3
+    largo = estado == 2
+    if (largo and low <= stop) or (not largo and high >= stop)
+        stopSig := true
+        estado := 4
+    else if (largo and high >= objetivo) or (not largo and low <= objetivo)
+        objSig := true
+        estado := 4
+
+plotshape(compraSig, "Entrada compra", shape.triangleup, location.belowbar, colCompra, size=size.small)
+plotshape(ventaSig, "Entrada venta", shape.triangledown, location.abovebar, colVenta, size=size.small)
+plotshape(objSig, "Objetivo", shape.circle, location.abovebar, color.aqua, size=size.tiny)
+plotshape(stopSig, "Stop", shape.xcross, location.belowbar, color.gray, size=size.tiny)
+
+alertcondition(compraSig, "OCO: entrada de compra", "Se activó la COMPRA en la apertura de NY")
+alertcondition(ventaSig, "OCO: entrada de venta", "Se activó la VENTA en la apertura de NY")
+alertcondition(objSig, "OCO: objetivo", "Objetivo alcanzado")
+alertcondition(stopSig, "OCO: stop", "Stop alcanzado")
